@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>SigVerify — Digital Signature Validator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0d14;
+    --surface: #111520;
+    --card: #161c2e;
+    --border: #1e2a45;
+    --accent: #4f8ef7;
+    --accent2: #7b5ea7;
+    --green: #22d3a0;
+    --red: #f7566a;
+    --yellow: #f7c948;
+    --text: #e8edf7;
+    --muted: #6b7a99;
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 0%, rgba(79,142,247,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 100%, rgba(123,94,167,0.07) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .container { max-width: 540px; margin: 0 auto; padding: 24px 16px 48px; position: relative; z-index: 1; }
+  .header { text-align: center; padding: 32px 0 28px; }
+  .logo-wrap { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; font-size: 22px;
+    box-shadow: 0 0 24px rgba(79,142,247,0.35);
+  }
+  .logo-text {
+    font-family: var(--font-display); font-size: 26px; font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(90deg, var(--accent), #a78bfa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .tagline { font-size: 14px; color: var(--muted); font-weight: 500; }
+
+  /* Setup Banner */
+  .setup-banner {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 20px;
+  }
+  .setup-banner-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--accent); margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .setup-step {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .setup-step:last-child { border-bottom: none; }
+  .step-num {
+    width: 22px; height: 22px; background: var(--accent);
+    border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 800;
+    flex-shrink: 0; margin-top: 1px; color: white;
+  }
+  .step-text { color: var(--muted); line-height: 1.5; }
+  .step-text code {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--surface); padding: 2px 6px;
+    border-radius: 4px; color: var(--text);
+  }
+  .toggle-setup {
+    background: none; border: none; color: var(--accent);
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    margin-top: 10px; padding: 0;
+    text-decoration: underline;
+  }
+
+  /* API URL Input */
+  .api-config {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px; margin-bottom: 20px;
+  }
+  .api-label {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .api-row { display: flex; gap: 8px; align-items: center; }
+  .api-input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-family: var(--font-mono); font-size: 12px; outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-input:focus { border-color: var(--accent); }
+  .api-status {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--muted); flex-shrink: 0; transition: background 0.3s;
+  }
+  .api-status.online { background: var(--green); box-shadow: 0 0 8px rgba(34,211,160,0.5); }
+  .api-status.offline { background: var(--red); }
+  .api-hint { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .api-hint a { color: var(--accent); }
+
+  /* Upload Zone */
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: 20px;
+    padding: 40px 24px; text-align: center; cursor: pointer;
+    transition: all 0.25s ease; background: var(--card);
+    position: relative; overflow: hidden; margin-bottom: 20px;
+  }
+  .upload-zone::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(79,142,247,0.04), rgba(123,94,167,0.04));
+    opacity: 0; transition: opacity 0.25s;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent); transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(79,142,247,0.12);
+  }
+  .upload-zone:hover::before, .upload-zone.drag-over::before { opacity: 1; }
+  .upload-icon {
+    font-size: 48px; margin-bottom: 16px; display: block;
+    filter: drop-shadow(0 0 16px rgba(79,142,247,0.4));
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+  .upload-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .upload-sub { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .upload-sub span { color: var(--accent); font-weight: 600; }
+  input[type="file"] { display: none; }
+
+  /* File Selected */
+  .file-selected {
+    display: none; align-items: center; gap: 12px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px; margin-bottom: 20px;
+    animation: slideIn 0.3s ease;
+  }
+  .file-selected.show { display: flex; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .file-icon-wrap {
+    width: 48px; height: 48px; background: rgba(247,86,106,0.12);
+    border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; font-size: 24px; flex-shrink: 0;
+  }
+  .file-info { flex: 1; min-width: 0; }
+  .file-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+  .file-size { font-size: 12px; color: var(--muted); }
+  .remove-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 20px; padding: 4px; transition: color 0.2s; }
+  .remove-btn:hover { color: var(--red); }
+
+  /* Validate Button */
+  .validate-btn {
+    width: 100%; padding: 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 14px; color: white;
+    font-family: var(--font-display); font-size: 16px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.3px; transition: all 0.25s ease;
+    box-shadow: 0 4px 20px rgba(79,142,247,0.3); margin-bottom: 24px;
+  }
+  .validate-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(79,142,247,0.45); }
+  .validate-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .validate-btn .spinner {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* Results */
+  .results { display: none; }
+  .results.show { display: block; animation: slideIn 0.4s ease; }
+  .status-banner {
+    border-radius: 18px; padding: 24px; text-align: center;
+    margin-bottom: 20px; position: relative; overflow: hidden;
+  }
+  .status-banner::before {
+    content: ''; position: absolute; inset: 0; opacity: 0.06;
+    background: radial-gradient(circle at 50% 0%, white, transparent 70%);
+  }
+  .status-banner.valid { background: linear-gradient(135deg,rgba(34,211,160,.12),rgba(34,211,160,.06)); border:1px solid rgba(34,211,160,.3); }
+  .status-banner.invalid { background: linear-gradient(135deg,rgba(247,86,106,.12),rgba(247,86,106,.06)); border:1px solid rgba(247,86,106,.3); }
+  .status-banner.warning { background: linear-gradient(135deg,rgba(247,201,72,.12),rgba(247,201,72,.06)); border:1px solid rgba(247,201,72,.3); }
+  .status-banner.none { background: linear-gradient(135deg,rgba(107,122,153,.12),rgba(107,122,153,.06)); border:1px solid rgba(107,122,153,.3); }
+  .status-emoji { font-size: 48px; margin-bottom: 10px; display: block; }
+  .status-title { font-family: var(--font-display); font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .status-banner.valid .status-title { color: var(--green); }
+  .status-banner.invalid .status-title { color: var(--red); }
+  .status-banner.warning .status-title { color: var(--yellow); }
+  .status-banner.none .status-title { color: var(--muted); }
+  .status-message { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .info-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  .info-card-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+  .info-card-value { font-size: 16px; font-weight: 700; color: var(--text); }
+  .info-card-value.green { color: var(--green); }
+  .info-card-value.red { color: var(--red); }
+
+  .section-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .sig-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 12px; }
+  .sig-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .sig-badge { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .sig-badge.valid { background: rgba(34,211,160,0.12); }
+  .sig-badge.invalid { background: rgba(247,86,106,0.12); }
+  .sig-badge.detected { background: rgba(247,201,72,0.12); }
+  .sig-header-text { flex: 1; }
+  .sig-num { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sig-name { font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sig-status-pill { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sig-status-pill.valid { background: rgba(34,211,160,.15); color: var(--green); }
+  .sig-status-pill.invalid { background: rgba(247,86,106,.15); color: var(--red); }
+  .sig-status-pill.detected { background: rgba(247,201,72,.15); color: var(--yellow); }
+  .sig-rows { display: flex; flex-direction: column; gap: 10px; }
+  .sig-row { display: flex; align-items: flex-start; gap: 10px; }
+  .sig-row-icon { font-size: 14px; width: 20px; flex-shrink: 0; margin-top: 1px; }
+  .sig-row-content { flex: 1; }
+  .sig-row-label { font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 1px; }
+  .sig-row-value { font-size: 13px; color: var(--text); font-weight: 500; word-break: break-word; }
+  .sig-row-value.mono { font-family: var(--font-mono); font-size: 12px; }
+  .check-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface); border-radius: 10px; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+
+  .note-card { background: rgba(79,142,247,0.06); border: 1px solid rgba(79,142,247,0.2); border-radius: 14px; padding: 14px 16px; margin-top: 20px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .note-card strong { color: var(--accent); }
+
+  .install-hint { background: rgba(247,201,72,.06); border: 1px solid rgba(247,201,72,.2); border-radius: 14px; padding: 14px 16px; margin-top: 12px; }
+  .install-hint-title { font-size: 12px; font-weight: 700; color: var(--yellow); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .install-hint code { display: block; font-family: var(--font-mono); font-size: 12px; color: var(--text); background: var(--surface); padding: 8px 12px; border-radius: 8px; margin-top: 8px; overflow-x: auto; }
+
+  .reset-btn { width: 100%; padding: 14px; background: transparent; border: 1px solid var(--border); border-radius: 14px; color: var(--muted); font-family: var(--font-body); font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px; transition: all 0.2s; }
+  .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .error-card { background: rgba(247,86,106,.08); border: 1px solid rgba(247,86,106,.25); border-radius: 14px; padding: 16px; color: var(--red); font-size: 13px; margin-bottom: 16px; display: none; line-height: 1.5; }
+  .error-card.show { display: block; }
+
+  .supported-section { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .doc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .doc-chip { padding: 6px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; font-size: 12px; color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-wrap">
+      <div class="logo-icon">🔐</div>
+      <div class="logo-text">SigVerify</div>
+    </div>
+    <div class="tagline">Digital Signature Validator · Works for all global PDFs</div>
+  </div>
+
+  <!-- Codespaces Setup Guide -->
+  <div class="setup-banner" id="setupBanner">
+    <div class="setup-banner-title">⚡ How to Run the Backend (GitHub Codespaces)</div>
+    <div class="setup-step">
+      <div class="step-num">1</div>
+      <div class="step-text">Open your GitHub repo → Click <strong style="color:var(--text)">Code → Codespaces → Create codespace</strong></div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">2</div>
+      <div class="step-text">In the Codespace terminal, run:<br/><code>bash start.sh</code></div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">3</div>
+      <div class="step-text">Click <strong style="color:var(--text)">Ports tab → Port 8000 → 🌐 icon</strong> to get your public URL (looks like <code>https://xyz-8000.app.github.dev</code>)</div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">4</div>
+      <div class="step-text">Paste that URL into the <strong style="color:var(--text)">API URL field</strong> below ↓</div>
+    </div>
+    <button class="toggle-setup" onclick="toggleSetup()">Hide these instructions</button>
+  </div>
+
+  <!-- API Config -->
+  <div class="api-config">
+    <div class="api-label">⚙️ Backend API URL</div>
+    <div class="api-row">
+      <input type="text" class="api-input" id="apiUrl"
+        placeholder="https://your-codespace-8000.app.github.dev"
+        value="" />
+      <div class="api-status" id="apiStatus"></div>
+    </div>
+    <div class="api-hint">
+      Paste your Codespaces port URL here.<br/>
+      Make sure port 8000 is set to <strong style="color:var(--text)">Public</strong> in the Ports tab.
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-card" id="errorCard"></div>
+
+  <!-- Upload Zone -->
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <span class="upload-icon">📄</span>
+    <div class="upload-title">Drop your PDF here</div>
+    <div class="upload-sub">
+      Aadhaar, Income Tax, DocuSign,<br/>
+      Adobe Sign, EU eIDAS & more<br/><br/>
+      <span>Tap to browse</span> · Max 20MB
+    </div>
+    <input type="file" id="fileInput" accept=".pdf" onchange="handleFileSelect(event)" />
+  </div>
+
+  <!-- File Selected -->
+  <div class="file-selected" id="fileSelected">
+    <div class="file-icon-wrap">📄</div>
+    <div class="file-info">
+      <div class="file-name" id="fileName"></div>
+      <div class="file-size" id="fileSize"></div>
+    </div>
+    <button class="remove-btn" onclick="removeFile()">✕</button>
+  </div>
+
+  <!-- Validate Button -->
+  <button class="validate-btn" id="validateBtn" onclick="validate()" disabled>
+    Validate Signature
+  </button>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <div class="status-banner" id="statusBanner">
+      <span class="status-emoji" id="statusEmoji"></span>
+      <div class="status-title" id="statusTitle"></div>
+      <div class="status-message" id="statusMessage"></div>
+    </div>
+    <div class="info-grid" id="infoGrid"></div>
+    <div id="signaturesSection"></div>
+    <div class="note-card">
+      <strong>About this validator:</strong> Uses the same cryptographic standards as Adobe Acrobat (PKCS#7 / CMS / X.509). Valid means the document was not modified after signing and the certificate chain is intact.
+    </div>
+    <button class="reset-btn" onclick="reset()">↩ Validate Another Document</button>
+  </div>
+
+  <!-- Supported -->
+  <div class="supported-section">
+    <div class="section-title">✅ Supported Documents</div>
+    <div class="doc-chips">
+      <div class="doc-chip">🇮🇳 Aadhaar PDF</div>
+      <div class="doc-chip">🇮🇳 Income Tax</div>
+      <div class="doc-chip">🇮🇳 MCA / ROC</div>
+      <div class="doc-chip">🇪🇺 eIDAS</div>
+      <div class="doc-chip">🌐 DocuSign</div>
+      <div class="doc-chip">🌐 Adobe Sign</div>
+      <div class="doc-chip">🌐 Any PKI PDF</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let selectedFile = null;
+  let setupVisible = true;
+
+  // Load saved API URL
+  const saved = localStorage.getItem('sigverify_api');
+  if (saved) document.getElementById('apiUrl').value = saved;
+
+  document.getElementById('apiUrl').addEventListener('input', (e) => {
+    localStorage.setItem('sigverify_api', e.target.value);
+  });
+
+  document.getElementById('apiUrl').addEventListener('change', checkApiStatus);
+
+  function toggleSetup() {
+    setupVisible = !setupVisible;
+    const steps = document.querySelectorAll('.setup-step');
+    const btn = document.querySelector('.toggle-setup');
+    steps.forEach(s => s.style.display = setupVisible ? '' : 'none');
+    btn.textContent = setupVisible ? 'Hide these instructions' : 'Show setup instructions';
+  }
+
+  async function checkApiStatus() {
+    const url = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+    if (!url) return;
+    const dot = document.getElementById('apiStatus');
+    dot.className = 'api-status';
+    try {
+      const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(4000) });
+      dot.className = res.ok ? 'api-status online' : 'api-status offline';
+    } catch {
+      dot.className = 'api-status offline';
+    }
+  }
+
+  checkApiStatus();
+  setInterval(checkApiStatus, 15000);
+
+  // Drag & Drop
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.toLowerCase().endsWith('.pdf')) setFile(file);
+    else showError('Please drop a PDF file.');
+  });
+
+  function handleFileSelect(e) { if (e.target.files[0]) setFile(e.target.files[0]); }
+
+  function setFile(file) {
+    selectedFile = file;
+    document.getElementById('uploadZone').style.display = 'none';
+    document.getElementById('fileSelected').classList.add('show');
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileSize').textContent = formatSize(file.size);
+    document.getElementById('validateBtn').disabled = false;
+    hideError();
+    document.getElementById('results').classList.remove('show');
+  }
+
+  function removeFile() {
+    selectedFile = null;
+    document.getElementById('uploadZone').style.display = '';
+    document.getElementById('fileSelected').classList.remove('show');
+    document.getElementById('validateBtn').disabled = true;
+    document.getElementById('fileInput').value = '';
+    hideError();
+    document.getElementById('results').classList.remove('show');
+  }
+
+  function formatSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(2) + ' MB';
+  }
+
+  function showError(msg) {
+    const c = document.getElementById('errorCard');
+    c.innerHTML = '⚠️ ' + msg;
+    c.classList.add('show');
+  }
+  function hideError() { document.getElementById('errorCard').classList.remove('show'); }
+
+  async function validate() {
+    if (!selectedFile) return;
+    const btn = document.getElementById('validateBtn');
+    btn.innerHTML = '<span class="spinner"></span> Validating...';
+    btn.disabled = true;
+    hideError();
+
+    const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+    if (!apiUrl) {
+      showError('Please enter your Codespaces API URL first.');
+      btn.innerHTML = 'Validate Signature'; btn.disabled = false; return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      const res = await fetch(`${apiUrl}/validate`, { method: 'POST', body: formData });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+      renderResults(await res.json());
+    } catch(e) {
+      if (e.message.includes('fetch') || e.message.includes('Network')) {
+        showError(`Cannot reach backend. Make sure:<br/>1. Your Codespace is running (<code>bash start.sh</code>)<br/>2. Port 8000 is set to <strong>Public</strong> in Codespaces Ports tab<br/>3. The URL is correct`);
+      } else {
+        showError(e.message);
+      }
+      btn.innerHTML = 'Validate Signature'; btn.disabled = false;
+    }
+  }
+
+  function renderResults(data) {
+    const btn = document.getElementById('validateBtn');
+    btn.innerHTML = 'Validate Signature'; btn.disabled = false;
+    document.getElementById('results').classList.add('show');
+
+    const summary = data.summary || {};
+    const sigs = data.signatures || [];
+
+    if (data.error) { renderBanner('invalid','❌','Invalid File', data.error); document.getElementById('infoGrid').innerHTML=''; document.getElementById('signaturesSection').innerHTML=''; return; }
+
+    const status = summary.status;
+    if (status==='VALID') renderBanner('valid','✅','Signature Valid', summary.message||'');
+    else if (status==='INVALID') renderBanner('invalid','❌','Signature Invalid', summary.message||'');
+    else if (status==='DETECTED') renderBanner('warning','⚠️','Signature Detected', summary.message||'');
+    else if (status==='PARTIAL') renderBanner('warning','⚠️','Partially Valid', summary.message||'');
+    else renderBanner('none','📄','No Signatures Found','This PDF has no embedded digital signatures.');
+
+    document.getElementById('infoGrid').innerHTML = `
+      <div class="info-card"><div class="info-card-label">Total Signatures</div><div class="info-card-value">${summary.total_signatures||0}</div></div>
+      <div class="info-card"><div class="info-card-label">Valid</div><div class="info-card-value ${(summary.valid||0)>0?'green':'red'}">${summary.valid||0}</div></div>
+      <div class="info-card"><div class="info-card-label">File Size</div><div class="info-card-value">${data.file_size_kb} KB</div></div>
+      <div class="info-card"><div class="info-card-label">Checked At</div><div class="info-card-value" style="font-size:12px;font-family:var(--font-mono)">${formatTime(data.validated_at)}</div></div>
+    `;
+
+    const sec = document.getElementById('signaturesSection');
+    if (!sigs.length) { sec.innerHTML=''; }
+    else {
+      let html = `<div class="section-title" style="margin-top:20px">Signature Details</div>`;
+      sigs.forEach(sig => {
+        const isDetected = summary.status==='DETECTED';
+        const cls = isDetected?'detected':(sig.valid_signature?'valid':'invalid');
+        const emoji = isDetected?'⚠️':(sig.valid_signature?'✅':'❌');
+        const pillText = isDetected?'Detected':(sig.valid_signature?'Valid':'Invalid');
+        const checks=[];
+        if(sig.intact!=null) checks.push({label:'Document Integrity',ok:sig.intact});
+        if(sig.trusted!=null) checks.push({label:'Trusted Certificate',ok:sig.trusted});
+        if(sig.cert_expired!=null) checks.push({label:'Certificate Not Expired',ok:!sig.cert_expired});
+        if(sig.covers_whole_document!=null) checks.push({label:'Covers Full Document',ok:sig.covers_whole_document});
+        html += `
+          <div class="sig-card">
+            <div class="sig-header">
+              <div class="sig-badge ${cls}">${emoji}</div>
+              <div class="sig-header-text">
+                <div class="sig-num">Signature ${sig.index}</div>
+                <div class="sig-name">${sig.signer_name||'Unknown Signer'}</div>
+              </div>
+              <div class="sig-status-pill ${cls}">${pillText}</div>
+            </div>
+            <div class="sig-rows">
+              ${sig.organization&&sig.organization!=='Unknown'?`<div class="sig-row"><div class="sig-row-icon">🏢</div><div class="sig-row-content"><div class="sig-row-label">Organization</div><div class="sig-row-value">${sig.organization}</div></div></div>`:''}
+              ${sig.issuer&&sig.issuer!=='Unknown CA'&&!sig.issuer.includes('pyHanko')?`<div class="sig-row"><div class="sig-row-icon">🏛️</div><div class="sig-row-content"><div class="sig-row-label">Certificate Authority</div><div class="sig-row-value">${sig.issuer}</div></div></div>`:''}
+              ${sig.signing_time&&sig.signing_time!=='Unknown'?`<div class="sig-row"><div class="sig-row-icon">🕐</div><div class="sig-row-content"><div class="sig-row-label">Signed On</div><div class="sig-row-value mono">${sig.signing_time}</div></div></div>`:''}
+              ${sig.algorithm&&sig.algorithm!=='Unknown'?`<div class="sig-row"><div class="sig-row-icon">🔑</div><div class="sig-row-content"><div class="sig-row-label">Algorithm</div><div class="sig-row-value mono">${sig.algorithm}</div></div></div>`:''}
+              ${checks.length?`<div class="sig-row"><div class="sig-row-icon">✔️</div><div class="sig-row-content"><div class="sig-row-label">Checks</div><div style="margin-top:6px">${checks.map(c=>`<div class="check-row"><span>${c.ok?'✅':'❌'}</span><span style="color:${c.ok?'var(--green)':'var(--red)'}">${c.label}</span></div>`).join('')}</div></div></div>`:''}
+              ${sig.note?`<div style="font-size:12px;color:var(--yellow);margin-top:4px;padding:8px 10px;background:rgba(247,201,72,.06);border-radius:8px">${sig.note}</div>`:''}
+            </div>
+          </div>`;
+      });
+      if (summary.install_note) {
+        html += `<div class="install-hint"><div class="install-hint-title">⚡ Upgrade to Full Validation</div><div style="font-size:12px;color:var(--muted)">For full cryptographic validation, install pyHanko on your Codespace:</div><code>pip install pyhanko pyhanko-certvalidator</code></div>`;
+      }
+      sec.innerHTML = html;
+    }
+    setTimeout(() => document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'}), 100);
+  }
+
+  function renderBanner(type,emoji,title,msg) {
+    document.getElementById('statusBanner').className=`status-banner ${type}`;
+    document.getElementById('statusEmoji').textContent=emoji;
+    document.getElementById('statusTitle').textContent=title;
+    document.getElementById('statusMessage').textContent=msg;
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+    catch { return iso; }
+  }
+
+  function reset() { removeFile(); document.getElementById('results').classList.remove('show'); window.scrollTo({top:0,behavior:'smooth'}); }
+</script>
+</body>
+</html>
