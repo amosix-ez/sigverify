@@ -1,1 +1,6 @@
 
+fastapi==0.115.0
+uvicorn==0.30.6
+python-multipart==0.0.9
+pyhanko==0.21.0
+pyhanko-certvalidator==0.26.3
